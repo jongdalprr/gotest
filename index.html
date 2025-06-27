@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>서울역 1호선 상행 (녹천행)</title>
+  <style>
+    body { font-family: sans-serif; padding: 1.5em; background: #f9f9f9; }
+    h2 { color: #0052cc; font-size: 1.3rem; margin-bottom: 1em; }
+    ul { list-style: none; padding: 0; }
+    li { background: #fff; margin-bottom: 0.5em; padding: 0.8em; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  </style>
+</head>
+<body>
+  <h2>🚇 서울역 → 녹천행 (1호선 상행)<br>25분 이내 도착 열차</h2>
+  <ul id="train-list"><li>열차 정보를 불러오는 중...</li></ul>
+
+  <script>
+    async function fetchTrainData() {
+      const list = document.getElementById("train-list");
+      list.innerHTML = "<li>열차 정보를 불러오는 중...</li>";
+      try {
+        const res = await fetch("/api/train");
+        const data = await res.json();
+        const rows = data.realtimeArrivalList || [];
+
+        const filtered = rows.filter(row =>
+          row.updnLine.includes("상행") &&
+          row.trainLineNm.includes("1호선") &&
+          row.bstatnNm.includes("녹천") &&
+          parseInt(row.barvlDt) <= 1500
+        );
+
+        if (filtered.length === 0) {
+          list.innerHTML = "<li>25분 이내 도착하는 상행 열차가 없습니다.</li>";
+          return;
+        }
+
+        list.innerHTML = '';
+        filtered.forEach(train => {
+          const minutes = Math.floor(parseInt(train.barvlDt) / 60);
+          const li = document.createElement('li');
+          li.textContent = `${train.arvlMsg2} (약 ${minutes}분 후 도착 예정, 종착: ${train.bstatnNm})`;
+          list.appendChild(li);
+        });
+      } catch (e) {
+        list.innerHTML = "<li>❌ 데이터를 불러오지 못했습니다.</li>";
+        console.error(e);
+      }
+    }
+
+    fetchTrainData();
+    setInterval(fetchTrainData, 60000);
+  </script>
+</body>
+</html>
