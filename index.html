@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>서울역 1호선 상행 (녹천행)</title>
+  <title>서울역 1호선 상행 (소요산 방면)</title>
   <style>
     body { font-family: sans-serif; padding: 1.5em; background: #f9f9f9; }
     h2 { color: #0052cc; font-size: 1.3rem; margin-bottom: 1em; }
@@ -12,7 +12,7 @@
   </style>
 </head>
 <body>
-  <h2>🚇 서울역 → 녹천행 (1호선 상행)<br>25분 이내 도착 열차</h2>
+  <h2>🚇 서울역 → 소요산/도봉산/동두천/의정부/연천 방면 (1호선 상행)<br>25분 이내 도착 열차</h2>
   <ul id="train-list"><li>열차 정보를 불러오는 중...</li></ul>
 
   <script>
@@ -27,7 +27,9 @@
         const filtered = rows.filter(row =>
           row.updnLine.includes("상행") &&
           row.trainLineNm.includes("1호선") &&
-          row.bstatnNm.includes("녹천") &&
+          ["소요산", "도봉산", "동두천", "의정부", "연천"].some(keyword =>
+            row.bstatnNm && row.bstatnNm.includes(keyword)
+          ) &&
           parseInt(row.barvlDt) <= 1500
         );
 
