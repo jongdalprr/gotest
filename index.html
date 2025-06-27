@@ -16,40 +16,52 @@
   <ul id="train-list"><li>열차 정보를 불러오는 중...</li></ul>
 
   <script>
-    async function fetchTrainData() {
-      const list = document.getElementById("train-list");
-      list.innerHTML = "<li>열차 정보를 불러오는 중...</li>";
-      try {
-        const res = await fetch("/api/train");
-        const data = await res.json();
-        const rows = data.realtimeArrivalList || [];
+async function fetchTrainData() {
+  const list = document.getElementById("train-list");
+  list.innerHTML = "<li>열차 정보를 불러오는 중...</li>";
+  try {
+    const res = await fetch("/api/train");
+    const data = await res.json();
 
-        const filtered = rows.filter(row =>
-          row.updnLine.includes("상행") &&
-          row.trainLineNm.includes("1호선") &&
-          ["소요산", "도봉산", "동두천", "의정부", "연천"].some(keyword =>
-            row.bstatnNm && row.bstatnNm.includes(keyword)
-          ) &&
-          parseInt(row.barvlDt) <= 1500
-        );
+    console.log("🔄 전체 데이터:", data.realtimeArrivalList);
+    const rows = data.realtimeArrivalList || [];
 
-        if (filtered.length === 0) {
-          list.innerHTML = "<li>25분 이내 도착하는 상행 열차가 없습니다.</li>";
-          return;
-        }
+    const filtered = rows.filter(train => {
+      const isUp = train.updnLine.includes("상행");
+      const isLine1 = train.trainLineNm.includes("1호선");
+      const isDest = ["소요산", "도봉산", "동두천", "의정부", "연천"].some(kw =>
+        train.bstatnNm && train.bstatnNm.includes(kw)
+      );
+      const timeOK = parseInt(train.barvlDt) <= 1500;
 
-        list.innerHTML = '';
-        filtered.forEach(train => {
-          const minutes = Math.floor(parseInt(train.barvlDt) / 60);
-          const li = document.createElement('li');
-          li.textContent = `${train.arvlMsg2} (약 ${minutes}분 후 도착 예정, 종착: ${train.bstatnNm})`;
-          list.appendChild(li);
-        });
-      } catch (e) {
-        list.innerHTML = "<li>❌ 데이터를 불러오지 못했습니다.</li>";
-        console.error(e);
-      }
+      console.log(train.arvlMsg2, "| updn:", train.updnLine,
+        "| line:", train.trainLineNm,
+        "| dest:", train.bstatnNm,
+        "| dt:", train.barvlDt,
+        "| pass:", isUp, isLine1, isDest, timeOK);
+
+      return isUp && isLine1 && isDest && timeOK;
+    });
+
+    console.log("✅ 필터된 수:", filtered.length);
+
+    if (filtered.length === 0) {
+      list.innerHTML = "<li>25분 이내 도착하는 상행 열차가 없습니다.</li>";
+      return;
     }
+
+    list.innerHTML = '';
+    filtered.forEach(train => {
+      const minutes = Math.floor(parseInt(train.barvlDt) / 60);
+      const li = document.createElement('li');
+      li.textContent = `${train.arvlMsg2} (약 ${minutes}분 후 도착 예정, 종착: ${train.bstatnNm})`;
+      list.appendChild(li);
+    });
+  } catch (e) {
+    list.innerHTML = "<li>❌ 데이터를 불러오지 못했습니다.</li>";
+    console.error(e);
+  }
+}
 
     fetchTrainData();
     setInterval(fetchTrainData, 60000);
