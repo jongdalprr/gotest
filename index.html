@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>서울역 1호선 상행 열차 조회 (실시간)</title>
+  <title>서울역 1호선 상행 열차 조회</title>
   <style>
     body { font-family: sans-serif; padding: 1.5em; background: #f9f9f9; }
     h2 { color: #0052cc; font-size: 1.3rem; margin-bottom: 1em; }
@@ -19,50 +19,72 @@
     async function fetchTrainData() {
       const list = document.getElementById("train-list");
       list.innerHTML = "<li>열차 정보를 불러오는 중...</li>";
+
       try {
         const res = await fetch("/api/train");
         const data = await res.json();
         const rows = data.realtimeArrivalList || [];
 
+        // 🔍 조건 필터링
         const filtered = rows.filter(train => {
-          const isUp = (train.updnLine || '').includes("상행");
-          const isLine1 = train.subwayId === "1001";
+          const up = (train.updnLine || '').includes("상행");
+          const line1 = train.subwayId === "1001"; // 1호선 ID
           const terminal = train.bstatnNm || '';
-          const isDest = ["소요산", "의정부", "동두천", "연천", "도봉산"].some(d => terminal.includes(d));
-          const timeOK = parseInt(train.barvlDt) <= 1500;
+          const isDest = ["소요산", "의정부", "동두천", "연천", "도봉산"]
+            .some(keyword => terminal.includes(keyword));
+          const barvlDt = parseInt(train.barvlDt);
+          const timeOK = barvlDt >= 0 && barvlDt <= 1500;
 
-          console.log(`[DEBUG] ${train.trainLineNm} | subwayId:${train.subwayId} | 종착:${terminal} | ${train.barvlDt}s | isUp:${isUp}, isLine1:${isLine1}, isDest:${isDest}, timeOK:${timeOK}`);
+          console.log(
+            `[DEBUG] ${train.trainLineNm} | subwayId:${train.subwayId} | 종착:${terminal} | ${barvlDt}s | ` +
+            `isUp:${up}, isLine1:${line1}, isDest:${isDest}, timeOK:${timeOK}`
+          );
 
-          return isUp && isLine1 && isDest && timeOK;
-});
+          return up && line1 && isDest && timeOK;
+        });
 
-        if (filtered.length === 0) {
+        // 🔄 중복 제거: 같은 trainNo는 1개만 (가장 빠른 barvlDt 유지)
+        const dedupedMap = new Map();
+        filtered.forEach(train => {
+          const existing = dedupedMap.get(train.trainNo);
+          if (!existing || parseInt(train.barvlDt) < parseInt(existing.barvlDt)) {
+            dedupedMap.set(train.trainNo, train);
+          }
+        });
+
+        // 📌 도착 시간 빠른 순 정렬 후 최대 3개
+        const finalList = Array.from(dedupedMap.values())
+          .sort((a, b) => parseInt(a.barvlDt) - parseInt(b.barvlDt))
+          .slice(0, 3);
+
+        // ✅ 결과 출력
+        list.innerHTML = '';
+        if (finalList.length === 0) {
           list.innerHTML = "<li>⚠️ 25분 이내 도착하는 상행 1호선 열차가 없습니다.</li>";
-          return;
+        } else {
+          finalList.forEach(train => {
+            const seconds = parseInt(train.barvlDt);
+            const minutes = Math.floor(seconds / 60);
+            const remainSec = seconds % 60;
+
+            const timeText = (minutes === 0)
+              ? `약 ${remainSec}초 후 도착 예정`
+              : `약 ${minutes}분 ${remainSec}초 후 도착 예정`;
+
+            const li = document.createElement('li');
+            li.textContent = `${train.arvlMsg2} (${timeText}, 종착: ${train.bstatnNm})`;
+            list.appendChild(li);
+          });
         }
 
-        list.innerHTML = '';
-        filtered.forEach(train => {
-          const seconds = parseInt(train.barvlDt);
-          const minutes = Math.floor(seconds / 60);
-          const remainSec = seconds % 60;
-
-          const timeText = (minutes === 0)
-           ? `약 ${remainSec}초 후 도착 예정`
-           : `약 ${minutes}분 ${remainSec}초 후 도착 예정`;
-
-          const li = document.createElement('li');
-           li.textContent = `${train.arvlMsg2} (${timeText}, 종착: ${train.bstatnNm})`;
-           list.appendChild(li);
-    });
-      } catch (e) {
+      } catch (err) {
         list.innerHTML = "<li>❌ 데이터를 불러오지 못했습니다.</li>";
-        console.error(e);
+        console.error(err);
       }
     }
 
     fetchTrainData();
-    setInterval(fetchTrainData, 60000);
+    setInterval(fetchTrainData, 60000); // 1분마다 자동 갱신
   </script>
 </body>
 </html>
