@@ -1,10 +1,9 @@
-<!-- 디버깅 로그 포함된 HTML -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>서울역 1호선 상행 (소요산 방면) - 디버깅</title>
+  <title>서울역 1호선 상행 열차 조회 (실시간)</title>
   <style>
     body { font-family: sans-serif; padding: 1.5em; background: #f9f9f9; }
     h2 { color: #0052cc; font-size: 1.3rem; margin-bottom: 1em; }
@@ -13,7 +12,7 @@
   </style>
 </head>
 <body>
-  <h2>🚇 서울역 → 소요산/도봉산/동두천/의정부/연천 방면 (1호선 상행)<br>25분 이내 도착 열차</h2>
+  <h2>🚇 서울역 → 소요산/의정부/동두천/연천 등 (상행, 1호선)</h2>
   <ul id="train-list"><li>열차 정보를 불러오는 중...</li></ul>
 
   <script>
@@ -25,25 +24,20 @@
         const data = await res.json();
         const rows = data.realtimeArrivalList || [];
 
-        console.log("🔄 전체 데이터:", rows);
-
         const filtered = rows.filter(train => {
-          const isUp = train.updnLine.includes("상행");
-          const isLine1 = train.trainLineNm.includes("1호선");
-          const isDest = ["소요산", "도봉산", "동두천", "의정부", "연천"].some(kw =>
-            train.bstatnNm && train.bstatnNm.includes(kw)
-          );
-          const timeOK = parseInt(train.barvlDt) <= 1500;
+          const up = (train.updnLine || '').includes("상행");
+          const line1 = (train.trainLineNm || '').includes("1호선");
+          const terminal = train.bstatnNm || '';
+          const destMatch = ["소요산", "의정부", "동두천", "연천", "도봉산"].some(d => terminal.includes(d));
+          const within25min = parseInt(train.barvlDt) <= 1500;
 
-          console.log(`[DEBUG] ${train.trainLineNm} | 종착:${train.bstatnNm} | ${train.barvlDt}s | 조건:`, { isUp, isLine1, isDest, timeOK });
+          console.log(`[DEBUG] ${train.trainLineNm} - ${train.arvlMsg3} | 종착:${terminal} | ${train.barvlDt}s | isUp:${up}, isLine1:${line1}, isDest:${destMatch}, timeOK:${within25min}`);
 
-          return isUp && isLine1 && isDest && timeOK;
+          return up && line1 && destMatch && within25min;
         });
 
-        console.log("✅ 필터된 열차 수:", filtered.length);
-
         if (filtered.length === 0) {
-          list.innerHTML = "<li>25분 이내 도착하는 상행 열차가 없습니다.</li>";
+          list.innerHTML = "<li>⚠️ 25분 이내 도착하는 상행 1호선 열차가 없습니다.</li>";
           return;
         }
 
