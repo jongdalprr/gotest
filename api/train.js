@@ -1,3 +1,4 @@
+// /api/train.js
 export default async function handler(req, res) {
   const API_KEY = '73646e69466a657234366f45705247';
   const url = `http://swopenAPI.seoul.go.kr/api/subway/${API_KEY}/json/realtimeStationArrival/0/50/서울`;
