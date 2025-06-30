@@ -43,11 +43,18 @@
 
         list.innerHTML = '';
         filtered.forEach(train => {
-          const minutes = Math.floor(parseInt(train.barvlDt) / 60);
+          const seconds = parseInt(train.barvlDt);
+          const minutes = Math.floor(seconds / 60);
+          const remainSec = seconds % 60;
+
+          const timeText = (minutes === 0)
+           ? `약 ${remainSec}초 후 도착 예정`
+           : `약 ${minutes}분 ${remainSec}초 후 도착 예정`;
+
           const li = document.createElement('li');
-          li.textContent = `${train.arvlMsg2} (약 ${minutes}분 후 도착 예정, 종착: ${train.bstatnNm})`;
-          list.appendChild(li);
-        });
+           li.textContent = `${train.arvlMsg2} (${timeText}, 종착: ${train.bstatnNm})`;
+           list.appendChild(li);
+    });
       } catch (e) {
         list.innerHTML = "<li>❌ 데이터를 불러오지 못했습니다.</li>";
         console.error(e);
