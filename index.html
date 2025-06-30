@@ -25,16 +25,16 @@
         const rows = data.realtimeArrivalList || [];
 
         const filtered = rows.filter(train => {
-          const up = (train.updnLine || '').includes("상행");
-          const line1 = (train.trainLineNm || '').includes("1호선");
+          const isUp = (train.updnLine || '').includes("상행");
+          const isLine1 = train.subwayId === "1001";
           const terminal = train.bstatnNm || '';
-          const destMatch = ["소요산", "의정부", "동두천", "연천", "도봉산"].some(d => terminal.includes(d));
-          const within25min = parseInt(train.barvlDt) <= 1500;
+          const isDest = ["소요산", "의정부", "동두천", "연천", "도봉산"].some(d => terminal.includes(d));
+          const timeOK = parseInt(train.barvlDt) <= 1500;
 
-          console.log(`[DEBUG] ${train.trainLineNm} - ${train.arvlMsg3} | 종착:${terminal} | ${train.barvlDt}s | isUp:${up}, isLine1:${line1}, isDest:${destMatch}, timeOK:${within25min}`);
+          console.log(`[DEBUG] ${train.trainLineNm} | subwayId:${train.subwayId} | 종착:${terminal} | ${train.barvlDt}s | isUp:${isUp}, isLine1:${isLine1}, isDest:${isDest}, timeOK:${timeOK}`);
 
-          return up && line1 && destMatch && within25min;
-        });
+          return isUp && isLine1 && isDest && timeOK;
+});
 
         if (filtered.length === 0) {
           list.innerHTML = "<li>⚠️ 25분 이내 도착하는 상행 1호선 열차가 없습니다.</li>";
