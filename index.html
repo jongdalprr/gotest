@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -7,36 +8,29 @@
   <style>
     body { font-family: sans-serif; padding: 1.5em; background: #f9f9f9; }
     h2 { color: #0052cc; font-size: 1.3rem; margin-bottom: 1em; }
-    button {
-      padding: 0.6em 1.2em;
-      background-color: #0052cc;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      margin-bottom: 1em;
-      cursor: pointer;
-      font-size: 0.9rem;
-    }
     ul { list-style: none; padding: 0; }
-    li {
-      background: #fff;
-      margin-bottom: 0.5em;
-      padding: 0.8em;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    li { background: #fff; margin-bottom: 0.5em; padding: 0.8em; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    button {
+      margin-top: 1rem;
+      padding: 0.6em 1em;
+      font-size: 1rem;
+      border: none;
+      background: #007bff;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
   <h2>🚇 서울역 → 소요산/의정부/동두천/연천 등 (상행, 1호선)</h2>
-  <button onclick="fetchTrainData()">🔄 지금 바로 새로고침</button>
   <ul id="train-list"><li>열차 정보를 불러오는 중...</li></ul>
+  <button id="refresh-btn">🔄 새로고침</button>
 
   <script>
     async function fetchTrainData() {
       const list = document.getElementById("train-list");
       list.innerHTML = "<li>열차 정보를 불러오는 중...</li>";
-
       try {
         const res = await fetch("/api/train");
         const data = await res.json();
@@ -46,16 +40,9 @@
           const up = (train.updnLine || '').includes("상행");
           const line1 = train.subwayId === "1001";
           const terminal = train.bstatnNm || '';
-          const isDest = ["소요산", "의정부", "동두천", "연천", "도봉산"]
-            .some(keyword => terminal.includes(keyword));
+          const isDest = ["소요산", "의정부", "동두천", "연천", "도봉산"].some(d => terminal.includes(d));
           const barvlDt = parseInt(train.barvlDt);
           const timeOK = barvlDt >= 0 && barvlDt <= 1500;
-
-          console.log(
-            `[DEBUG] ${train.trainLineNm} | subwayId:${train.subwayId} | 종착:${terminal} | ${barvlDt}s | ` +
-            `isUp:${up}, isLine1:${line1}, isDest:${isDest}, timeOK:${timeOK}`
-          );
-
           return up && line1 && isDest && timeOK;
         });
 
@@ -79,7 +66,6 @@
             const seconds = parseInt(train.barvlDt);
             const minutes = Math.floor(seconds / 60);
             const remainSec = seconds % 60;
-
             const timeText = (minutes === 0)
               ? `약 ${remainSec}초 후 도착 예정`
               : `약 ${minutes}분 ${remainSec}초 후 도착 예정`;
@@ -89,15 +75,15 @@
             list.appendChild(li);
           });
         }
-
-      } catch (err) {
+      } catch (e) {
         list.innerHTML = "<li>❌ 데이터를 불러오지 못했습니다.</li>";
-        console.error(err);
+        console.error(e);
       }
     }
 
-    fetchTrainData(); // 최초 실행
-    setInterval(fetchTrainData, 60000); // 1분마다 자동 갱신
+    fetchTrainData();
+    setInterval(fetchTrainData, 60000);
+    document.getElementById("refresh-btn").addEventListener("click", fetchTrainData);
   </script>
 </body>
 </html>
