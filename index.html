@@ -36,32 +36,41 @@
         const rows = data.realtimeArrivalList || [];
 
         const filtered = rows.filter(train => {
-          // 25분 이내 도착 조건 (timeOK) 제거
-          // const barvlDt = parseInt(train.barvlDt || "9999");
-          // const timeOK = barvlDt >= 0 && barvlDt <= 1500;
-
           const isLine1 = train.subwayId === "1001";
-          const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0";
-          const trainLine = train.trainLineNm || '';
-          const terminal = train.bstatnNm || '';
-          const currentStation = train.arvlCd; // 현재 열차 상태 코드 (도착, 출발 등)
+          const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0"; // 0도 상행으로 간주 (API 문서에 따라 다를 수 있음)
+          const trainLine = train.trainLineNm || ''; // 열차 행선지 (예: 소요산행)
+          const terminal = train.bstatnNm || ''; // 종착역 (예: 소요산)
+          const arvlMsg2 = train.arvlMsg2 || ''; // 도착 메시지 (예: '종로3가역 진입', '전역 출발')
 
-          // "구로" 또는 "서울"역을 포함하는 열차를 조회하도록 조건 변경
-          // 상행 열차는 서울역 방면이므로, 종착역이나 열차 라인에 "구로"가 포함되면 구로~서울역 구간으로 볼 수 있습니다.
-          const isGuroSeoulLine = trainLine.includes("구로") || terminal.includes("구로") || trainLine.includes("서울") || terminal.includes("서울");
+          // 1. 소요산, 의정부, 동두천, 연천, 양주 (도봉산 포함) 행 열차인지 확인
+          const targetDestinations = ["소요산", "의정부", "동두천", "연천", "양주", "도봉산"];
+          const isTargetDestination = targetDestinations.some(dest =>
+            trainLine.includes(dest) || terminal.includes(dest)
+          );
 
-          // 기존의 목적지(소요산 등) 조건은 제거합니다.
-          // const isDest = ["소요산", "의정부", "동두천", "연천", "도봉산", "양주"].some(dest =>
-          //   trainLine.includes(dest) || terminal.includes(dest)
-          // );
+          // 2. 구로역과 서울역 사이 구간에 있는 열차인지 판단
+          // 서울역 이전 역들: 남영, 용산, 노량진, 대방, 신길, 영등포, 신도림, 구로
+          // 이 메시지들은 실제 열차의 현재 위치를 나타내는 주요 단서가 됩니다.
+          const isBetweenGuroSeoul = (
+              arvlMsg2.includes("구로") || // 구로역 관련 메시지
+              arvlMsg2.includes("신도림") ||
+              arvlMsg2.includes("영등포") ||
+              arvlMsg2.includes("신길") ||
+              arvlMsg2.includes("대방") ||
+              arvlMsg2.includes("노량진") ||
+              arvlMsg2.includes("용산") ||
+              arvlMsg2.includes("남영") ||
+              arvlMsg2.includes("서울역") // 서울역 진입/도착 메시지
+          );
 
-          // 상행(Up)이면서 1호선이고, 구로-서울역 구간 관련 열차를 필터링
-          return isLine1 && isUp && isGuroSeoulLine; // && timeOK; // timeOK 조건 제거
+          // 최종 필터링 조건: 1호선 상행, 특정 목적지 행, 그리고 구로-서울역 구간에 위치
+          return isLine1 && isUp && isTargetDestination && isBetweenGuroSeoul;
         });
 
         const dedupedMap = new Map();
         filtered.forEach(train => {
           const existing = dedupedMap.get(train.trainNo);
+          // 동일 열차 번호인 경우, 더 가까운 (barvlDt가 작은) 정보로 업데이트
           if (!existing || parseInt(train.barvlDt) < parseInt(existing.barvlDt)) {
             dedupedMap.set(train.trainNo, train);
           }
@@ -73,17 +82,23 @@
 
         list.innerHTML = '';
         if (finalList.length === 0) {
-          list.innerHTML = "<li>⚠️ 구로-서울역 구간의 상행 1호선 열차 정보를 찾을 수 없습니다.</li>";
+          list.innerHTML = "<li>⚠️ 구로-서울역 구간에 1호선 상행 열차가 없습니다.</li>";
         } else {
           finalList.forEach(train => {
             const seconds = parseInt(train.barvlDt);
             const minutes = Math.floor(seconds / 60);
             const remainSec = seconds % 60;
-            const timeText = (seconds >= 0)
-              ? (minutes === 0
+
+            let timeText = '';
+            if (seconds > 0) {
+              timeText = (minutes === 0)
                 ? `약 ${remainSec}초 후 도착 예정`
-                : `약 ${minutes}분 ${remainSec}초 후 도착 예정`)
-              : "도착 정보 없음"; // barvlDt가 음수일 경우 처리
+                : `약 ${minutes}분 ${remainSec}초 후 도착 예정`;
+            } else if (seconds === 0) {
+              timeText = "곧 도착"; // barvlDt가 0이면 곧 도착
+            } else { // seconds < 0 인 경우 (이미 도착했거나 음수값)
+                timeText = "도착 정보 없음 / 출발"; // 혹은 다른 적절한 메시지
+            }
 
             const li = document.createElement('li');
             li.textContent = `${train.arvlMsg2} (${timeText}, 종착: ${train.bstatnNm})`;
@@ -97,7 +112,9 @@
     }
 
     fetchTrainData();
+    // 1분(60000ms)마다 새로고침
     setInterval(fetchTrainData, 60000);
+    // 새로고침 버튼 클릭 시 즉시 새로고침
     document.getElementById("refresh-btn").addEventListener("click", fetchTrainData);
   </script>
 </body>
