@@ -51,21 +51,21 @@
           // 2. 구로역과 서울역 사이 구간에 있는 열차인지 판단
           // 서울역 이전 역들: 남영, 용산, 노량진, 대방, 신길, 영등포, 신도림, 구로
           // 이 메시지들은 실제 열차의 현재 위치를 나타내는 주요 단서가 됩니다.
-          const isBetweenGuroSeoul = (
-              arvlMsg2.includes("구로") || // 구로역 관련 메시지
-              arvlMsg2.includes("신도림") ||
-              arvlMsg2.includes("영등포") ||
-              arvlMsg2.includes("신길") ||
-              arvlMsg2.includes("대방") ||
-              arvlMsg2.includes("노량진") ||
-              arvlMsg2.includes("용산") ||
-              arvlMsg2.includes("남영") ||
-              arvlMsg2.includes("서울역") // 서울역 진입/도착 메시지
-          );
+         // const isBetweenGuroSeoul = (
+          //    arvlMsg2.includes("구로") || // 구로역 관련 메시지
+          //    arvlMsg2.includes("신도림") ||
+          //    arvlMsg2.includes("영등포") ||
+          //    arvlMsg2.includes("신길") ||
+          //    arvlMsg2.includes("대방") ||
+          //    arvlMsg2.includes("노량진") ||
+          //    arvlMsg2.includes("용산") ||
+          //    arvlMsg2.includes("남영") ||
+          //    arvlMsg2.includes("서울역") // 서울역 진입/도착 메시지
+         // );
 
           // 최종 필터링 조건: 1호선 상행, 특정 목적지 행, 그리고 구로-서울역 구간에 위치
           return isLine1 && isUp && isTargetDestination && isBetweenGuroSeoul;
-        });
+          return isLine1 && isUp;
 
         const dedupedMap = new Map();
         filtered.forEach(train => {
