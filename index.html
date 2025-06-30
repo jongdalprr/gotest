@@ -1,15 +1,15 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>서울역 1호선 상행 열차 조회</title>
+  <title>서울역 상행선 열차 조회</title>
   <style>
-    body { font-family: sans-serif; padding: 1.5em; background: #f9f9f9; }
-    h2 { color: #0052cc; font-size: 1.3rem; margin-bottom: 1em; }
+    body { font-family: sans-serif; padding: 1.5em; background: #f4f4f4; }
+    h2 { color: #0052cc; font-size: 1.3rem; }
     ul { list-style: none; padding: 0; }
-    li { background: #fff; margin-bottom: 0.5em; padding: 0.8em; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    li { background: white; margin-bottom: 0.6em; padding: 0.9em; border-radius: 6px;
+         box-shadow: 0 1px 4px rgba(0,0,0,0.1); font-size: 1rem; }
     button {
       margin-top: 1rem;
       padding: 0.6em 1em;
@@ -23,7 +23,7 @@
   </style>
 </head>
 <body>
-  <h2>🚇 서울역 → 소요산/의정부/동두천/연천 등 (상행, 1호선)</h2>
+  <h2>🚇 서울역 상행선 (1호선) - 도착 예정 열차</h2>
   <ul id="train-list"><li>열차 정보를 불러오는 중...</li></ul>
   <button id="refresh-btn">🔄 새로고침</button>
 
@@ -36,49 +36,51 @@
         const data = await res.json();
         const rows = data.realtimeArrivalList || [];
 
+        const seoulIndex = stationOrder.indexOf("서울");
+        if (seoulIndex === -1) {
+          list.innerHTML = "<li>❌ 서울역 정보가 없습니다.</li>";
+          return;
+        }
+
         const filtered = rows.filter(train => {
-  const barvlDt = parseInt(train.barvlDt || "9999");
-  const timeOK = barvlDt >= 0 && barvlDt <= 1500;
-
-  const isLine1 = train.subwayId === "1001";
-  const isUp = (train.updnLine || '').includes("상행") || train.updnLine === "0"; // 안전성 확보
-  const trainLine = train.trainLineNm || '';
-  const terminal = train.bstatnNm || '';
-
-  const isDest = ["소요산", "의정부", "동두천", "연천", "도봉산"].some(dest =>
-    trainLine.includes(dest) || terminal.includes(dest)
-  );
-
-  return isLine1 && isUp && isDest && timeOK;
-});
-
+          const isLine1 = train.subwayId === "1001";
+          const up = (train.updnLine || '').includes("상행") || train.updnLine === "0";
+          const destOK = ["소요산", "의정부", "동두천", "연천", "도봉산", "양주"].some(d =>
+            (train.trainLineNm || "").includes(d) || (train.bstatnNm || "").includes(d)
+          );
+          const currStation = train.statnNm;
+          return isLine1 && up && destOK && currStation && stationOrder.includes(currStation);
+        });
 
         const dedupedMap = new Map();
         filtered.forEach(train => {
-          const existing = dedupedMap.get(train.trainNo);
-          if (!existing || parseInt(train.barvlDt) < parseInt(existing.barvlDt)) {
+          if (!dedupedMap.has(train.trainNo)) {
             dedupedMap.set(train.trainNo, train);
           }
         });
 
         const finalList = Array.from(dedupedMap.values())
-          .sort((a, b) => parseInt(a.barvlDt) - parseInt(b.barvlDt))
+          .map(train => {
+            const idx = stationOrder.indexOf(train.statnNm);
+            const distanceToSeoul = seoulIndex - idx;
+            const estimatedSec = Math.max(0, distanceToSeoul * 90); // 90초 간격 가정
+            return { ...train, distanceToSeoul, estimatedSec };
+          })
+          .filter(train => train.distanceToSeoul >= 0)
+          .sort((a, b) => a.estimatedSec - b.estimatedSec)
           .slice(0, 3);
 
         list.innerHTML = '';
         if (finalList.length === 0) {
-          list.innerHTML = "<li>⚠️ 25분 이내 도착하는 상행 1호선 열차가 없습니다.</li>";
+          list.innerHTML = "<li>⚠️ 서울역 도착 예정 열차가 없습니다.</li>";
         } else {
           finalList.forEach(train => {
-            const seconds = parseInt(train.barvlDt);
-            const minutes = Math.floor(seconds / 60);
-            const remainSec = seconds % 60;
-            const timeText = (minutes === 0)
-              ? `약 ${remainSec}초 후 도착 예정`
-              : `약 ${minutes}분 ${remainSec}초 후 도착 예정`;
-
-            const li = document.createElement('li');
-            li.textContent = `${train.arvlMsg2} (${timeText}, 종착: ${train.bstatnNm})`;
+            const sec = train.estimatedSec;
+            const min = Math.floor(sec / 60);
+            const remain = sec % 60;
+            const eta = min > 0 ? `${min}분 ${remain}초 후` : `${remain}초 후`;
+            const li = document.createElement("li");
+            li.textContent = `${train.arvlMsg2 || "도착 예정"} (${eta}, 종착: ${train.bstatnNm})`;
             list.appendChild(li);
           });
         }
@@ -87,6 +89,13 @@
         console.error(e);
       }
     }
+
+    const stationOrder = [
+      "소요산", "동두천", "보산", "동두천중앙", "지행", "덕정", "덕계", "양주", "녹양",
+      "가능", "의정부", "회룡", "망월사", "도봉산", "도봉", "방학", "창동", "녹천",
+      "월계", "광운대", "석계", "신이문", "외대앞", "회기", "청량리", "제기동", "신설동",
+      "동묘앞", "동대문", "종로5가", "종로3가", "종각", "시청", "서울", "남영", "용산"
+    ];
 
     fetchTrainData();
     setInterval(fetchTrainData, 60000);
