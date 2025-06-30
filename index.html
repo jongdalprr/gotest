@@ -37,21 +37,20 @@
         const rows = data.realtimeArrivalList || [];
 
         const filtered = rows.filter(train => {
-  const barvlDt = parseInt(train.barvlDt || "9999");
-  const timeOK = barvlDt >= 0 && barvlDt <= 1500;
+          const barvlDt = parseInt(train.barvlDt || "9999");
+          const timeOK = barvlDt >= 0 && barvlDt <= 1500;
 
-  const isLine1 = train.subwayId === "1001";
-  const isUp = (train.updnLine || '').includes("상행") || train.updnLine === "0"; // 안전성 확보
-  const trainLine = train.trainLineNm || '';
-  const terminal = train.bstatnNm || '';
+          const isLine1 = train.subwayId === "1001";
+          const isUp = (train.updnLine || '').includes("상행") || train.updnLine === "0";
+          const trainLine = train.trainLineNm || '';
+          const terminal = train.bstatnNm || '';
 
-  const isDest = ["소요산", "의정부", "동두천", "연천", "도봉산"].some(dest =>
-    trainLine.includes(dest) || terminal.includes(dest)
-  );
+          const isDest = ["소요산", "의정부", "동두천", "연천", "도봉산"].some(dest =>
+            trainLine.includes(dest) || terminal.includes(dest)
+          );
 
-  return isLine1 && isUp && isDest && timeOK;
-});
-
+          return isLine1 && isUp && isDest && timeOK;
+        });
 
         const dedupedMap = new Map();
         filtered.forEach(train => {
@@ -63,7 +62,7 @@
 
         const finalList = Array.from(dedupedMap.values())
           .sort((a, b) => parseInt(a.barvlDt) - parseInt(b.barvlDt))
-          .slice(0, 3);
+          .slice(0, 5); // 최대 5개
 
         list.innerHTML = '';
         if (finalList.length === 0) {
