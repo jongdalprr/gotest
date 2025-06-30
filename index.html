@@ -1,9 +1,10 @@
+<!-- 디버깅 로그 포함된 HTML -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>서울역 1호선 상행 (소요산 방면)</title>
+  <title>서울역 1호선 상행 (소요산 방면) - 디버깅</title>
   <style>
     body { font-family: sans-serif; padding: 1.5em; background: #f9f9f9; }
     h2 { color: #0052cc; font-size: 1.3rem; margin-bottom: 1em; }
@@ -16,52 +17,48 @@
   <ul id="train-list"><li>열차 정보를 불러오는 중...</li></ul>
 
   <script>
-async function fetchTrainData() {
-  const list = document.getElementById("train-list");
-  list.innerHTML = "<li>열차 정보를 불러오는 중...</li>";
-  try {
-    const res = await fetch("/api/train");
-    const data = await res.json();
+    async function fetchTrainData() {
+      const list = document.getElementById("train-list");
+      list.innerHTML = "<li>열차 정보를 불러오는 중...</li>";
+      try {
+        const res = await fetch("/api/train");
+        const data = await res.json();
+        const rows = data.realtimeArrivalList || [];
 
-    console.log("🔄 전체 데이터:", data.realtimeArrivalList);
-    const rows = data.realtimeArrivalList || [];
+        console.log("🔄 전체 데이터:", rows);
 
-    const filtered = rows.filter(train => {
-      const isUp = train.updnLine.includes("상행");
-      const isLine1 = train.trainLineNm.includes("1호선");
-      const isDest = ["소요산", "도봉산", "동두천", "의정부", "연천"].some(kw =>
-        train.bstatnNm && train.bstatnNm.includes(kw)
-      );
-      const timeOK = parseInt(train.barvlDt) <= 1500;
+        const filtered = rows.filter(train => {
+          const isUp = train.updnLine.includes("상행");
+          const isLine1 = train.trainLineNm.includes("1호선");
+          const isDest = ["소요산", "도봉산", "동두천", "의정부", "연천"].some(kw =>
+            train.bstatnNm && train.bstatnNm.includes(kw)
+          );
+          const timeOK = parseInt(train.barvlDt) <= 1500;
 
-      console.log(train.arvlMsg2, "| updn:", train.updnLine,
-        "| line:", train.trainLineNm,
-        "| dest:", train.bstatnNm,
-        "| dt:", train.barvlDt,
-        "| pass:", isUp, isLine1, isDest, timeOK);
+          console.log(`[DEBUG] ${train.trainLineNm} | 종착:${train.bstatnNm} | ${train.barvlDt}s | 조건:`, { isUp, isLine1, isDest, timeOK });
 
-      return isUp && isLine1 && isDest && timeOK;
-    });
+          return isUp && isLine1 && isDest && timeOK;
+        });
 
-    console.log("✅ 필터된 수:", filtered.length);
+        console.log("✅ 필터된 열차 수:", filtered.length);
 
-    if (filtered.length === 0) {
-      list.innerHTML = "<li>25분 이내 도착하는 상행 열차가 없습니다.</li>";
-      return;
+        if (filtered.length === 0) {
+          list.innerHTML = "<li>25분 이내 도착하는 상행 열차가 없습니다.</li>";
+          return;
+        }
+
+        list.innerHTML = '';
+        filtered.forEach(train => {
+          const minutes = Math.floor(parseInt(train.barvlDt) / 60);
+          const li = document.createElement('li');
+          li.textContent = `${train.arvlMsg2} (약 ${minutes}분 후 도착 예정, 종착: ${train.bstatnNm})`;
+          list.appendChild(li);
+        });
+      } catch (e) {
+        list.innerHTML = "<li>❌ 데이터를 불러오지 못했습니다.</li>";
+        console.error(e);
+      }
     }
-
-    list.innerHTML = '';
-    filtered.forEach(train => {
-      const minutes = Math.floor(parseInt(train.barvlDt) / 60);
-      const li = document.createElement('li');
-      li.textContent = `${train.arvlMsg2} (약 ${minutes}분 후 도착 예정, 종착: ${train.bstatnNm})`;
-      list.appendChild(li);
-    });
-  } catch (e) {
-    list.innerHTML = "<li>❌ 데이터를 불러오지 못했습니다.</li>";
-    console.error(e);
-  }
-}
 
     fetchTrainData();
     setInterval(fetchTrainData, 60000);
