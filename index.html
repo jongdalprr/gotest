@@ -37,20 +37,21 @@
         const rows = data.realtimeArrivalList || [];
 
         const filtered = rows.filter(train => {
-          const barvlDt = parseInt(train.barvlDt || "9999");
-          const timeOK = barvlDt >= 0 && barvlDt <= 1500;
+  const barvlDt = parseInt(train.barvlDt || "9999");
+  const timeOK = barvlDt >= 0 && barvlDt <= 1500;
 
-          const isLine1 = train.subwayId === "1001";
-          const isUp = (train.updnLine || '').includes("상행") || train.updnLine === "0";
-          const trainLine = train.trainLineNm || '';
-          const terminal = train.bstatnNm || '';
+  const isLine1 = train.subwayId === "1001";
+  const isUp = (train.updnLine || '').includes("상행") || train.updnLine === "0"; // 안전성 확보
+  const trainLine = train.trainLineNm || '';
+  const terminal = train.bstatnNm || '';
 
-          const isDest = ["소요산", "의정부", "동두천", "연천", "도봉산"].some(dest =>
-            trainLine.includes(dest) || terminal.includes(dest)
-          );
+  const isDest = ["소요산", "의정부", "동두천", "연천", "도봉산"].some(dest =>
+    trainLine.includes(dest) || terminal.includes(dest)
+  );
 
-          return isLine1 && isUp && isDest && timeOK;
-        });
+  return isLine1 && isUp && isDest && timeOK;
+});
+
 
         const dedupedMap = new Map();
         filtered.forEach(train => {
@@ -60,11 +61,9 @@
           }
         });
 
-// 중복 제거 로직 완화 또는 무효화하려면 아래처럼 간단히만 해도 됩니다:
-const finalList = filtered
-  .sort((a, b) => parseInt(a.barvlDt) - parseInt(b.barvlDt))
-  .slice(0, 5); // 최대 5개
-
+        const finalList = Array.from(dedupedMap.values())
+          .sort((a, b) => parseInt(a.barvlDt) - parseInt(b.barvlDt))
+          .slice(0, 3);
 
         list.innerHTML = '';
         if (finalList.length === 0) {
