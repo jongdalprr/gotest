@@ -60,9 +60,11 @@
           }
         });
 
-        const finalList = Array.from(dedupedMap.values())
-          .sort((a, b) => parseInt(a.barvlDt) - parseInt(b.barvlDt))
-          .slice(0, 5); // 최대 5개
+// 중복 제거 로직 완화 또는 무효화하려면 아래처럼 간단히만 해도 됩니다:
+const finalList = filtered
+  .sort((a, b) => parseInt(a.barvlDt) - parseInt(b.barvlDt))
+  .slice(0, 5); // 최대 5개
+
 
         list.innerHTML = '';
         if (finalList.length === 0) {
