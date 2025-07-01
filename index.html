@@ -22,7 +22,7 @@
   </style>
 </head>
 <body>
-  <h2>🚇 서울역 → 소요산/의정부/동두천/연천 등 (상행, 1호선)</h2>
+  <h2>🚇 서울역 방면 1호선 상행 열차<br>(25분 이내 / 종착: 소요산·의정부 등 / 구로~서울역 사이)</h2>
   <ul id="train-list"><li>열차 정보를 불러오는 중...</li></ul>
   <button id="refresh-btn">🔄 새로고침</button>
 
@@ -36,58 +36,40 @@
         const rows = data.realtimeArrivalList || [];
 
         const filtered = rows.filter(train => {
-  const barvlDt = parseInt(train.barvlDt || "9999");
-  const timeOK = barvlDt >= 0 && barvlDt <= 1500;
+          const barvlDt = parseInt(train.barvlDt || "9999");
+          const timeOK = barvlDt >= 0 && barvlDt <= 1500;
 
-  const isLine1 = train.subwayId === "1001";
-  const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0";
-  const terminal = train.bstatnNm || '';
-  const currentStation = train.statnNm || '';
+          const isLine1 = train.subwayId === "1001";
+          const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0";
+          const terminal = train.bstatnNm || '';
+          const currentStation = train.statnNm || '';
 
-  const isTargetDestination = ["소요산", "의정부", "동두천", "연천", "양주", "도봉산"]
-    .some(dest => terminal.includes(dest));
+          const isTargetDestination = ["소요산", "의정부", "동두천", "연천", "양주", "도봉산"]
+            .some(dest => terminal.includes(dest));
 
-  const isBetweenGuroSeoul = [
-    "구로", "신도림", "영등포", "신길", "대방", "노량진", "용산", "남영", "서울"
-  ].some(st => currentStation.includes(st));
+          const isBetweenGuroSeoul = [
+            "구로", "신도림", "영등포", "신길", "대방",
+            "노량진", "용산", "남영", "서울"
+          ].some(st => currentStation.includes(st));
 
-  return isLine1 && isUp && isTargetDestination && isBetweenGuroSeoul && timeOK;
-});
-
-
-
-        const dedupedMap = new Map();
-        filtered.forEach(train => {
-          const existing = dedupedMap.get(train.trainNo);
-          // 동일 열차 번호인 경우, 더 가까운 (barvlDt가 작은) 정보로 업데이트
-          if (!existing || parseInt(train.barvlDt) < parseInt(existing.barvlDt)) {
-            dedupedMap.set(train.trainNo, train);
-          }
+          return isLine1 && isUp && isTargetDestination && isBetweenGuroSeoul && timeOK;
         });
 
-        const finalList = Array.from(dedupedMap.values())
+        const finalList = filtered
           .sort((a, b) => parseInt(a.barvlDt) - parseInt(b.barvlDt))
-          .slice(0, 3); // 3개 유지
+          .slice(0, 3);
 
         list.innerHTML = '';
         if (finalList.length === 0) {
-          list.innerHTML = "<li>⚠️ 구로-서울역 구간에 1호선 상행 열차가 없습니다.</li>";
+          list.innerHTML = "<li>⚠️ 조건에 맞는 열차가 없습니다.</li>";
         } else {
           finalList.forEach(train => {
             const seconds = parseInt(train.barvlDt);
             const minutes = Math.floor(seconds / 60);
             const remainSec = seconds % 60;
-
-            let timeText = '';
-            if (seconds > 0) {
-              timeText = (minutes === 0)
-                ? `약 ${remainSec}초 후 도착 예정`
-                : `약 ${minutes}분 ${remainSec}초 후 도착 예정`;
-            } else if (seconds === 0) {
-              timeText = "곧 도착"; // barvlDt가 0이면 곧 도착
-            } else { // seconds < 0 인 경우 (이미 도착했거나 음수값)
-                timeText = "도착 정보 없음 / 출발"; // 혹은 다른 적절한 메시지
-            }
+            const timeText = (minutes === 0)
+              ? `약 ${remainSec}초 후 도착 예정`
+              : `약 ${minutes}분 ${remainSec}초 후 도착 예정`;
 
             const li = document.createElement('li');
             li.textContent = `${train.arvlMsg2} (${timeText}, 종착: ${train.bstatnNm})`;
@@ -101,9 +83,7 @@
     }
 
     fetchTrainData();
-    // 1분(60000ms)마다 새로고침
     setInterval(fetchTrainData, 60000);
-    // 새로고침 버튼 클릭 시 즉시 새로고침
     document.getElementById("refresh-btn").addEventListener("click", fetchTrainData);
   </script>
 </body>
