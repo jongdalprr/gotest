@@ -43,7 +43,7 @@
           const isLine1 = train.subwayId === "1001";
           const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0";
           const terminal = train.bstatnNm || '';
-          const currentStation = train.statnNm || '';
+          const currentStation = train.statnNm || train.arvlMsg3 || train.arvlMsg2 || '';
 
           const isTargetDestination = ["소요산", "의정부", "동두천", "연천", "양주", "도봉산"]
             .some(dest => terminal.includes(dest));
@@ -53,8 +53,18 @@
             "노량진", "용산", "남영", "서울"
           ].some(st => currentStation.includes(st));
 
-          return isLine1 && isUp && isTargetDestination && isBetweenGuroSeoul && timeOK;
+          const passed = isLine1 && isUp && isTargetDestination && isBetweenGuroSeoul && timeOK;
+
+          if (passed) {
+            console.log(`[DEBUG] 포함: ${train.trainLineNm} | 현재역: ${currentStation} | 종착: ${terminal} | 도착까지 ${barvlDt}s`);
+          } else {
+            console.log(`[DEBUG] 제외: ${train.trainLineNm} | 현재역: ${currentStation} | 종착: ${terminal} | 도착까지 ${barvlDt}s`);
+          }
+
+          return passed;
         });
+
+        console.log("[DEBUG] 최종 필터링된 열차 수:", filtered.length);
 
         const finalList = filtered
           .sort((a, b) => parseInt(a.barvlDt) - parseInt(b.barvlDt))
