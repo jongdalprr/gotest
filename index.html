@@ -36,36 +36,33 @@
         const rows = data.realtimeArrivalList || [];
 
         const filtered = rows.filter(train => {
-          const isLine1 = train.subwayId === "1001";
-          const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0"; // 0도 상행으로 간주 (API 문서에 따라 다를 수 있음)
-          const trainLine = train.trainLineNm || ''; // 열차 행선지 (예: 소요산행)
-          const terminal = train.bstatnNm || ''; // 종착역 (예: 소요산)
-          const arvlMsg2 = train.arvlMsg2 || ''; // 도착 메시지 (예: '종로3가역 진입', '전역 출발')
+  const isLine1 = train.subwayId === "1001";
+  const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0";
+  const trainLine = train.trainLineNm || '';
+  const terminal = train.bstatnNm || '';
+  const arvlMsg2 = train.arvlMsg2 || '';
+  const barvlDt = parseInt(train.barvlDt || "9999");
 
-          // 1. 소요산, 의정부, 동두천, 연천, 양주 (도봉산 포함) 행 열차인지 확인
-          const targetDestinations = ["소요산", "의정부", "동두천", "연천", "양주", "도봉산"];
-          const isTargetDestination = targetDestinations.some(dest =>
-            trainLine.includes(dest) || terminal.includes(dest)
-          );
+  const targetDestinations = ["소요산", "의정부", "동두천", "연천", "양주", "도봉산"];
+  const isTargetDestination = targetDestinations.some(dest =>
+    trainLine.includes(dest) || terminal.includes(dest)
+  );
 
-          // 2. 구로역과 서울역 사이 구간에 있는 열차인지 판단
-          // 서울역 이전 역들: 남영, 용산, 노량진, 대방, 신길, 영등포, 신도림, 구로
-          // 이 메시지들은 실제 열차의 현재 위치를 나타내는 주요 단서가 됩니다.
-         // const isBetweenGuroSeoul = (
-          //    arvlMsg2.includes("구로") || // 구로역 관련 메시지
-          //    arvlMsg2.includes("신도림") ||
-          //    arvlMsg2.includes("영등포") ||
-          //    arvlMsg2.includes("신길") ||
-          //    arvlMsg2.includes("대방") ||
-          //    arvlMsg2.includes("노량진") ||
-          //    arvlMsg2.includes("용산") ||
-          //    arvlMsg2.includes("남영") ||
-          //    arvlMsg2.includes("서울역") // 서울역 진입/도착 메시지
-         // );
+  const isBetweenGuroSeoul = (
+    arvlMsg2.includes("구로") ||
+    arvlMsg2.includes("신도림") ||
+    arvlMsg2.includes("영등포") ||
+    arvlMsg2.includes("신길") ||
+    arvlMsg2.includes("대방") ||
+    arvlMsg2.includes("노량진") ||
+    arvlMsg2.includes("용산") ||
+    arvlMsg2.includes("남영") ||
+    arvlMsg2.includes("서울")
+  );
 
-          // 최종 필터링 조건: 1호선 상행, 특정 목적지 행, 그리고 구로-서울역 구간에 위치
-          return isLine1 && isUp && isTargetDestination && isBetweenGuroSeoul;
-          return isLine1 && isUp;
+  return isLine1 && isUp && isTargetDestination && isBetweenGuroSeoul && barvlDt >= 0 && barvlDt <= 1500;
+});
+
 
         const dedupedMap = new Map();
         filtered.forEach(train => {
