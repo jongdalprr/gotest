@@ -22,7 +22,7 @@
   </style>
 </head>
 <body>
-  <h2>🚇 서울역 → 소요산/의정부/동두천 방면 (1호선 상행)<br>25분 이내 + 구로~서울역 구간</h2>
+  <h2>🚇 서울역 방면 1호선 상행 열차<br>(25분 이내 / 종착: 소요산·의정부 등 / 구로~서울역 사이)</h2>
   <ul id="train-list"><li>열차 정보를 불러오는 중...</li></ul>
   <button id="refresh-btn">🔄 새로고침</button>
 
@@ -36,12 +36,14 @@
         const rows = data.realtimeArrivalList || [];
 
         const filtered = rows.filter(train => {
+          const barvlDt = parseInt(train.barvlDt || "9999");
+          const timeOK = barvlDt >= 0 && barvlDt <= 1500;
+
           const isLine1 = train.subwayId === "1001";
           const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0";
           const trainLine = train.trainLineNm || '';
           const terminal = train.bstatnNm || '';
           const arvlMsg2 = train.arvlMsg2 || '';
-          const barvlDt = parseInt(train.barvlDt || "9999");
 
           const targetDestinations = ["소요산", "의정부", "동두천", "연천", "양주", "도봉산"];
           const isTargetDestination = targetDestinations.some(dest =>
@@ -60,10 +62,10 @@
             arvlMsg2.includes("서울")
           );
 
-          return isLine1 && isUp && isTargetDestination && isBetweenGuroSeoul && barvlDt >= 0 && barvlDt <= 1500;
+          return isLine1 && isUp && isTargetDestination && timeOK && isBetweenGuroSeoul;
         });
 
-        // 중복 제거
+        // 중복 제거: trainNo 기준
         const dedupedMap = new Map();
         filtered.forEach(train => {
           const existing = dedupedMap.get(train.trainNo);
@@ -74,11 +76,11 @@
 
         const finalList = Array.from(dedupedMap.values())
           .sort((a, b) => parseInt(a.barvlDt) - parseInt(b.barvlDt))
-          .slice(0, 3); // 최대 3개만 표시
+          .slice(0, 3); // 최대 3개
 
         list.innerHTML = '';
         if (finalList.length === 0) {
-          list.innerHTML = "<li>⚠️ 구로~서울역 구간 내 25분 이내 도착하는 상행 1호선 열차가 없습니다.</li>";
+          list.innerHTML = "<li>⚠️ 조건에 맞는 열차가 없습니다.</li>";
         } else {
           finalList.forEach(train => {
             const seconds = parseInt(train.barvlDt);
