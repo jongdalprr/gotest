@@ -41,29 +41,19 @@
 
   const isLine1 = train.subwayId === "1001";
   const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0";
-  const trainLine = train.trainLineNm || '';
   const terminal = train.bstatnNm || '';
-  const arvlMsg2 = train.arvlMsg2 || '';
+  const currentStation = train.statnNm || '';
 
-  const targetDestinations = ["소요산", "의정부", "동두천", "연천", "양주", "도봉산"];
-  const isTargetDestination = targetDestinations.some(dest =>
-    trainLine.includes(dest) || terminal.includes(dest)
-  );
+  const isTargetDestination = ["소요산", "의정부", "동두천", "연천", "양주", "도봉산"]
+    .some(dest => terminal.includes(dest));
 
-  const isBetweenGuroSeoul = (
-    arvlMsg2.includes("구로") ||
-    arvlMsg2.includes("신도림") ||
-    arvlMsg2.includes("영등포") ||
-    arvlMsg2.includes("신길") ||
-    arvlMsg2.includes("대방") ||
-    arvlMsg2.includes("노량진") ||
-    arvlMsg2.includes("용산") ||
-    arvlMsg2.includes("남영") ||
-    arvlMsg2.includes("서울")
-  );
+  const isBetweenGuroSeoul = [
+    "구로", "신도림", "영등포", "신길", "대방", "노량진", "용산", "남영", "서울"
+  ].some(st => currentStation.includes(st));
 
   return isLine1 && isUp && isTargetDestination && isBetweenGuroSeoul && timeOK;
 });
+
 
 
         const dedupedMap = new Map();
