@@ -1,35 +1,107 @@
-list.innerHTML = '';
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>서울역 1호선 상행 열차 조회</title>
+  <style>
+    body { font-family: sans-serif; padding: 1.5em; background: #f9f9f9; }
+    h2 { color: #0052cc; font-size: 1.3rem; margin-bottom: 1em; }
+    ul { list-style: none; padding: 0; }
+    li { background: #fff; margin-bottom: 0.5em; padding: 0.8em; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    button {
+      margin-top: 1rem;
+      padding: 0.6em 1em;
+      font-size: 1rem;
+      border: none;
+      background: #007bff;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h2>🚇 서울역 → 소요산/의정부/동두천 방면 (1호선 상행)<br>25분 이내 + 구로~서울역 구간</h2>
+  <ul id="train-list"><li>열차 정보를 불러오는 중...</li></ul>
+  <button id="refresh-btn">🔄 새로고침</button>
 
-if (mainTrains.length === 0) {
-  list.innerHTML = "<li>⚠️ 25분 이내 도착하는 상행 1호선 열차가 없습니다.</li>";
-} else {
-  mainTrains.forEach(train => {
-    const seconds = parseInt(train.barvlDt);
-    const minutes = Math.floor(seconds / 60);
-    const remainSec = seconds % 60;
-    const timeText = (minutes === 0)
-      ? `약 ${remainSec}초 후 도착 예정`
-      : `약 ${minutes}분 ${remainSec}초 후 도착 예정`;
+  <script>
+    async function fetchTrainData() {
+      const list = document.getElementById("train-list");
+      list.innerHTML = "<li>열차 정보를 불러오는 중...</li>";
+      try {
+        const res = await fetch("/api/train");
+        const data = await res.json();
+        const rows = data.realtimeArrivalList || [];
 
-    const li = document.createElement('li');
-    li.textContent = `${train.arvlMsg2} (${timeText}, 종착: ${train.bstatnNm})`;
-    list.appendChild(li);
-  });
+        const filtered = rows.filter(train => {
+          const isLine1 = train.subwayId === "1001";
+          const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0";
+          const trainLine = train.trainLineNm || '';
+          const terminal = train.bstatnNm || '';
+          const arvlMsg2 = train.arvlMsg2 || '';
+          const barvlDt = parseInt(train.barvlDt || "9999");
 
-  // ✅ 다음 열차 추가
-  if (nextTrain) {
-    const seconds = parseInt(nextTrain.barvlDt);
-    const minutes = Math.floor(seconds / 60);
-    const remainSec = seconds % 60;
-    const timeText = (minutes === 0)
-      ? `약 ${remainSec}초 후 도착 예정`
-      : `약 ${minutes}분 ${remainSec}초 후 도착 예정`;
+          const targetDestinations = ["소요산", "의정부", "동두천", "연천", "양주", "도봉산"];
+          const isTargetDestination = targetDestinations.some(dest =>
+            trainLine.includes(dest) || terminal.includes(dest)
+          );
 
-    const extra = document.createElement('li');
-    extra.style.background = '#eef6ff';
-    extra.style.border = '1px solid #007bff';
-    extra.style.fontStyle = 'italic';
-    extra.textContent = `다음 열차 ▶ ${nextTrain.arvlMsg2} (${timeText}, 종착: ${nextTrain.bstatnNm})`;
-    list.appendChild(extra);
-  }
-}
+          const isBetweenGuroSeoul = (
+            arvlMsg2.includes("구로") ||
+            arvlMsg2.includes("신도림") ||
+            arvlMsg2.includes("영등포") ||
+            arvlMsg2.includes("신길") ||
+            arvlMsg2.includes("대방") ||
+            arvlMsg2.includes("노량진") ||
+            arvlMsg2.includes("용산") ||
+            arvlMsg2.includes("남영") ||
+            arvlMsg2.includes("서울")
+          );
+
+          return isLine1 && isUp && isTargetDestination && isBetweenGuroSeoul && barvlDt >= 0 && barvlDt <= 1500;
+        });
+
+        // 중복 제거
+        const dedupedMap = new Map();
+        filtered.forEach(train => {
+          const existing = dedupedMap.get(train.trainNo);
+          if (!existing || parseInt(train.barvlDt) < parseInt(existing.barvlDt)) {
+            dedupedMap.set(train.trainNo, train);
+          }
+        });
+
+        const finalList = Array.from(dedupedMap.values())
+          .sort((a, b) => parseInt(a.barvlDt) - parseInt(b.barvlDt))
+          .slice(0, 3); // 최대 3개만 표시
+
+        list.innerHTML = '';
+        if (finalList.length === 0) {
+          list.innerHTML = "<li>⚠️ 구로~서울역 구간 내 25분 이내 도착하는 상행 1호선 열차가 없습니다.</li>";
+        } else {
+          finalList.forEach(train => {
+            const seconds = parseInt(train.barvlDt);
+            const minutes = Math.floor(seconds / 60);
+            const remainSec = seconds % 60;
+            const timeText = (minutes === 0)
+              ? `약 ${remainSec}초 후 도착 예정`
+              : `약 ${minutes}분 ${remainSec}초 후 도착 예정`;
+
+            const li = document.createElement('li');
+            li.textContent = `${train.arvlMsg2} (${timeText}, 종착: ${train.bstatnNm})`;
+            list.appendChild(li);
+          });
+        }
+      } catch (e) {
+        list.innerHTML = "<li>❌ 데이터를 불러오지 못했습니다.</li>";
+        console.error(e);
+      }
+    }
+
+    fetchTrainData();
+    setInterval(fetchTrainData, 60000);
+    document.getElementById("refresh-btn").addEventListener("click", fetchTrainData);
+  </script>
+</body>
+</html>
