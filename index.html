@@ -36,6 +36,9 @@
         const rows = data.realtimeArrivalList || [];
 
         const filtered = rows.filter(train => {
+  const barvlDt = parseInt(train.barvlDt || "9999");
+  const timeOK = barvlDt >= 0 && barvlDt <= 1500;
+
   const isLine1 = train.subwayId === "1001";
   const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0";
   const trainLine = train.trainLineNm || '';
@@ -59,8 +62,9 @@
     arvlMsg2.includes("서울")
   );
 
-  return isLine1 && isUp && isTargetDestination && isBetweenGuroSeoul;
+  return isLine1 && isUp && isTargetDestination && isBetweenGuroSeoul && timeOK;
 });
+
 
         const dedupedMap = new Map();
         filtered.forEach(train => {
