@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -36,40 +37,28 @@
         const rows = data.realtimeArrivalList || [];
 
         const filtered = rows.filter(train => {
-  const barvlDt = parseInt(train.barvlDt || "9999");
-  const timeOK = barvlDt >= 0 && barvlDt <= 1500;
+          const barvlDt = parseInt(train.barvlDt || "9999");
+          const timeOK = barvlDt >= 0 && barvlDt <= 1500;
 
-  const isLine1 = train.subwayId === "1001";
-  const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0";
-  const terminal = train.bstatnNm || '';
-  const currentStation = train.statnNm || '';
+          const isLine1 = train.subwayId === "1001";
+          const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0";
+          const terminal = train.bstatnNm || '';
+          const currentStation = train.statnNm || '';
 
-  const isTargetDestination = ["소요산", "의정부", "동두천", "연천", "양주", "도봉산"]
-    .some(dest => terminal.includes(dest));
+          const isTargetDestination = ["소요산", "의정부", "동두천", "연천", "양주", "도봉산"]
+            .some(dest => terminal.includes(dest));
 
-  const isBetweenGuroSeoul = [
-    "구로", "신도림", "영등포", "신길", "대방",
-    "노량진", "용산", "남영", "서울"
-  ].some(st => currentStation.includes(st));
+          const isBetweenGuroSeoul = [
+            "구로", "신도림", "영등포", "신길", "대방",
+            "노량진", "용산", "남영", "서울"
+          ].some(st => currentStation.includes(st));
 
-  return isLine1 && isUp && isTargetDestination && isBetweenGuroSeoul && timeOK;
-});
+          return isLine1 && isUp && isTargetDestination && isBetweenGuroSeoul && timeOK;
+        });
 
-// ✅ trainNo + statnNm 기준 중복 제거
-const dedupedMap = new Map();
-filtered.forEach(train => {
-  const key = `${train.trainNo}-${train.statnNm}`;
-  const existing = dedupedMap.get(key);
-  if (!existing || parseInt(train.barvlDt) < parseInt(existing.barvlDt)) {
-    dedupedMap.set(key, train);
-  }
-});
-
-// ✅ 도착 시간 기준 정렬 후 상위 3개 출력
-const finalList = Array.from(dedupedMap.values())
-  .sort((a, b) => parseInt(a.barvlDt) - parseInt(b.barvlDt))
-  .slice(0, 3);
-
+        const finalList = filtered
+          .sort((a, b) => parseInt(a.barvlDt) - parseInt(b.barvlDt))
+          .slice(0, 3);
 
         list.innerHTML = '';
         if (finalList.length === 0) {
