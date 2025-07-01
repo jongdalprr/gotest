@@ -16,14 +16,11 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       transition: all 0.2s;
     }
-    li.dimmed { /* 강조되지 않는 열차에 적용할 스타일 */
-      opacity: 0.6; /* 기존 0.4에서 0.6으로 살짝 밝게 조정 */
-      background: #f0f0f0; /* 배경색도 살짝 다르게 */
-    }
     li.highlighted { /* 강조될 열차에 적용할 스타일 */
       font-weight: bold;
       color: #0052cc; /* 글자색 강조 */
       border: 1px solid #007bff; /* 테두리 추가 */
+      background: #e6f2ff; /* 강조 배경색 */
     }
     button {
       margin-top: 1rem;
@@ -43,6 +40,22 @@
   <button id="refresh-btn">🔄 새로고침</button>
 
   <script>
+    // 서울역까지의 역 순서와 각 역에서의 서울역까지의 대략적인 소요 시간 (분 단위)
+    // 실제 이동 시간은 상황에 따라 달라질 수 있으므로, 대략적인 값을 사용합니다.
+    const stationOrder = {
+      "구로": 8, // 구로에서 서울역까지 약 8개 역, 대략적인 시간 (예: 15분)
+      "신도림": 7, // 신도림에서 서울역까지 약 7개 역, 대략적인 시간 (예: 13분)
+      "영등포": 6, // 영등포에서 서울역까지 약 6개 역, 대략적인 시간 (예: 11분)
+      "신길": 5,
+      "대방": 4,
+      "노량진": 3,
+      "용산": 2,
+      "남영": 1,
+      "서울": 0
+    };
+    // 역간 평균 소요 시간 (분) - 대략적인 계산용
+    const averageTimePerStation = 2; // 역당 평균 2분 소요 가정
+
     async function fetchTrainData() {
       const list = document.getElementById("train-list");
       list.innerHTML = "<li>열차 정보를 불러오는 중...</li>"; // 로딩 메시지
@@ -51,61 +64,76 @@
         const data = await res.json();
         const rows = data.realtimeArrivalList || [];
 
-        // 1. 1호선 상행 열차만 필터링 (구간 제한 없이 모든 상행 열차를 일단 가져옴)
-        const allUpTrains = rows.filter(train => {
-          const isLine1 = train.subwayId === "1001";
-          // updnLine이 '상행' 또는 '0' (상행 의미)인 경우를 포함
-          const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0";
-          return isLine1 && isUp;
-        });
-
-        // 2. 구로~서울 구간 역에 해당하는 열차만 최종적으로 필터링 및 정렬
         const guroSeoulStations = [
           "구로", "신도림", "영등포", "신길", "대방", "노량진", "용산", "남영", "서울"
         ];
 
-        const finalList = allUpTrains
-          .filter(train => {
-            // arvlMsg2 (도착지) 또는 statnNm (현재역)에 해당 역이 포함되는지 확인
-            const currentStationInfo = (train.arvlMsg2 || train.statnNm || '').replace(/\s+/g, ''); // 공백 제거
-            return guroSeoulStations.some(st => currentStationInfo.includes(st));
-          })
-          .sort((a, b) => parseInt(a.barvlDt || "99999") - parseInt(b.barvlDt || "99999"));
+        // 1. 1호선 상행 열차 중 지정된 9개 역에 해당하는 열차만 필터링 (모두 표시)
+        const relevantTrains = rows.filter(train => {
+          const isLine1 = train.subwayId === "1001";
+          const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0";
+          const currentStation = train.statnNm || train.arvlMsg2 || '';
+          
+          // arvlMsg2나 statnNm에 guroSeoulStations 중 하나라도 포함되면 해당 열차로 간주
+          // 현재 역 정보에 '도착'이나 '출발'만 있는 경우 statnNm을 우선시
+          let stationForFilter = (train.arvlMsg2 && (train.arvlMsg2.includes('도착') || train.arvlMsg2.includes('출발'))) ? train.statnNm : train.arvlMsg2;
+          stationForFilter = stationForFilter || currentStation; // Fallback if still empty
+
+          return isLine1 && isUp && guroSeoulStations.some(st => stationForFilter.includes(st));
+        });
+
+        // 도착 예정 시간(barvlDt) 기준으로 정렬
+        const sortedTrains = relevantTrains.sort((a, b) => parseInt(a.barvlDt || "99999") - parseInt(b.barvlDt || "99999"));
 
 
         list.innerHTML = ''; // 기존 목록 비우기
-        if (finalList.length === 0) {
+        if (sortedTrains.length === 0) {
           list.innerHTML = "<li>⚠️ 서울~구로 구간의 상행 열차가 없습니다.</li>";
         } else {
-          finalList.forEach(train => {
+          sortedTrains.forEach(train => {
             const terminal = train.bstatnNm || ''; // 종착역
             const seconds = parseInt(train.barvlDt || "0");
             const minutes = Math.floor(seconds / 60);
             const remainSec = seconds % 60;
-            const timeText = (minutes === 0)
+            const arrivalTimeText = (minutes === 0)
               ? `약 ${remainSec}초 후 도착 예정`
               : `약 ${minutes}분 ${remainSec}초 후 도착 예정`;
+
+            // 현재 열차가 위치한 역 (statnNm을 우선 사용)
+            let currentDisplayStation = train.statnNm || train.arvlMsg2 || '';
+            // arvlMsg2가 '도착'이나 '출발'과 같은 메시지일 경우, statnNm을 기본으로 사용
+            if (train.arvlMsg2 && (train.arvlMsg2.includes('도착') || train.arvlMsg2.includes('출발'))) {
+                 currentDisplayStation = train.statnNm || train.arvlMsg2 || '';
+            }
 
             // 강조 대상 종착역 목록 (북부 방면)
             const targetDestinations = ["소요산", "의정부", "동두천", "연천", "양주", "도봉산"];
             const isTargetDestination = targetDestinations.some(dest => terminal.includes(dest));
 
             const li = document.createElement("li");
-            // arvlMsg2가 '도착'이나 '출발'만 있는 경우 statnNm을 기본으로 사용
-            let stationName = train.arvlMsg2 || train.statnNm || '';
-            if (stationName.includes('도착') || stationName.includes('출발')) {
-                 stationName = train.statnNm || train.arvlMsg2 || '';
-            }
+            let additionalInfo = '';
 
-            li.textContent = `${stationName} (${timeText}, 종착: ${terminal})`;
-
-            // 강조 로직 수정: targetDestination이면 highlighted, 아니면 dimmed
             if (isTargetDestination) {
               li.classList.add("highlighted");
-            } else {
-              li.classList.add("dimmed");
-            }
 
+              // 서울역까지의 예상 이동 시간 계산
+              // 현재 역 정보를 stationOrder 맵에서 찾아서 남은 역 개수 계산
+              let stationsRemainingToSeoul = 0;
+              for (const st of guroSeoulStations) {
+                  if (currentDisplayStation.includes(st)) {
+                      stationsRemainingToSeoul = stationOrder[st] !== undefined ? stationOrder[st] : 0;
+                      break;
+                  }
+              }
+              const estimatedTravelTimeToSeoulMin = stationsRemainingToSeoul * averageTimePerStation;
+              if (stationsRemainingToSeoul > 0) {
+                  additionalInfo = `, 서울역까지 약 ${estimatedTravelTimeToSeoulMin}분 소요`;
+              } else if (stationsRemainingToSeoul === 0 && currentDisplayStation.includes("서울")) {
+                  additionalInfo = `, 서울역 도착`;
+              }
+            }
+            
+            li.textContent = `${currentDisplayStation} (${arrivalTimeText}, 종착: ${terminal}${additionalInfo})`;
             list.appendChild(li);
           });
         }
