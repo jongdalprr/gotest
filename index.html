@@ -126,11 +126,12 @@
         });
 
         const stationMap = {};
-        STATIONS.forEach(station => {
-          stationMap[station] = filtered
-            .filter(train => isHeadingToStation(train, station))
-            .sort((a, b) => parseInt(a.barvlDt || 9999) - parseInt(b.barvlDt || 9999)); // 도착순 정렬
-        });
+STATIONS.forEach(station => {
+  stationMap[station] = filtered
+    .filter(train => isHeadingToStation(train, station))
+    .sort((a, b) => parseInt(a.barvlDt || 9999) - parseInt(b.barvlDt || 9999));
+});
+
 
         tbody.innerHTML = "";
         STATIONS.forEach(station => {
