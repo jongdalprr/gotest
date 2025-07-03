@@ -113,7 +113,7 @@
       tbody.innerHTML = "<tr><td colspan='4'>열차 정보를 불러오는 중...</td></tr>";
 
       try {
-        const res = await fetch("/api/train");
+        const res = await fetch("sample-response.json");  // 같은 폴더에 있는 JSON 사용
         const data = await res.json();
         const rows = data.realtimeArrivalList || [];
 
