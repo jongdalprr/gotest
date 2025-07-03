@@ -1,0 +1,24 @@
+{
+  "realtimeArrivalList": [
+    {
+      "subwayId": "1001",
+      "updnLine": "상행",
+      "trainNo": "1234",
+      "arvlMsg2": "전역 출발",
+      "arvlMsg3": "신도림역 전역 출발",
+      "statnNm": "신도림",
+      "bstatnNm": "소요산",
+      "barvlDt": "300"
+    },
+    {
+      "subwayId": "1001",
+      "updnLine": "상행",
+      "trainNo": "1255",
+      "arvlMsg2": "도착",
+      "arvlMsg3": "영등포역 도착",
+      "statnNm": "영등포",
+      "bstatnNm": "동두천",
+      "barvlDt": "180"
+    }
+  ]
+}
