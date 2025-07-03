@@ -1,17 +1,40 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>서울역 1호선 상행 열차 조회</title>
+  <title>서울역 방면 1호선 상행 열차 조회</title>
   <style>
-    body { font-family: sans-serif; padding: 1.5em; background: #f9f9f9; }
-    h2 { color: #0052cc; font-size: 1.3rem; margin-bottom: 1em; }
-    ul { list-style: none; padding: 0; }
-    li { background: #fff; margin-bottom: 0.5em; padding: 0.8em; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    body {
+      font-family: sans-serif;
+      padding: 1rem;
+      background: #f9f9f9;
+      margin: 0;
+    }
+    h2 {
+      color: #0052cc;
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+      line-height: 1.4;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.6em 0.3em;
+      text-align: center;
+    }
+    th {
+      background: #e9f0ff;
+      color: #003366;
+    }
     button {
-      margin-top: 1rem;
+      display: block;
+      margin: 1rem auto 0;
       padding: 0.6em 1em;
       font-size: 1rem;
       border: none;
@@ -20,76 +43,123 @@
       border-radius: 6px;
       cursor: pointer;
     }
+    @media screen and (max-width: 600px) {
+      table, thead, tbody, th, td, tr {
+        display: block;
+      }
+      thead {
+        display: none;
+      }
+      tr {
+        margin-bottom: 1rem;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      td {
+        text-align: left;
+        padding: 0.5em;
+        border: none;
+        border-bottom: 1px solid #eee;
+      }
+      td:before {
+        content: attr(data-label);
+        font-weight: bold;
+        display: inline-block;
+        width: 40%;
+        color: #003366;
+      }
+    }
   </style>
 </head>
 <body>
-  <h2>🚇 서울역 방면 1호선 상행 열차<br>(25분 이내 / 종착: 소요산·의정부 등 / 구로~서울역 사이)</h2>
-  <ul id="train-list"><li>열차 정보를 불러오는 중...</li></ul>
+  <h2>🚇 서울역 방면 1호선 상행 열차<br>(구로~서울 구간 / 종착: 소요산·의정부 등)</h2>
+  <table id="train-table">
+    <thead>
+      <tr>
+        <th>현재위치</th>
+        <th>열차번호</th>
+        <th>종착역</th>
+        <th>서울역 도착예정</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td colspan="4">열차 정보를 불러오는 중...</td></tr>
+    </tbody>
+  </table>
   <button id="refresh-btn">🔄 새로고침</button>
 
   <script>
+    const STATIONS = ["구로", "신도림", "영등포", "신길", "대방", "노량진", "용산", "남영", "서울"];
+    const travelTimeToSeoul = {
+      "구로": 16, "신도림": 14, "영등포": 12, "신길": 10,
+      "대방": 8, "노량진": 6, "용산": 4, "남영": 2, "서울": 0
+    };
+    const targetDestinations = ["소요산", "의정부", "동두천", "연천", "양주", "도봉산"];
+
+    const getEstimatedArrivalTime = (minutesToAdd) => {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() + minutesToAdd);
+      return now.toTimeString().slice(0, 5); // HH:MM
+    };
+
+    const isHeadingToStation = (train, station) => {
+      const msg = `${train.arvlMsg2 || ""} ${train.arvlMsg3 || ""}`;
+      return msg.includes(`${station}역 전역 출발`) || msg.includes(`${station}역 도착`);
+    };
+
     async function fetchTrainData() {
-      const list = document.getElementById("train-list");
-      list.innerHTML = "<li>열차 정보를 불러오는 중...</li>";
+      const tbody = document.querySelector("#train-table tbody");
+      tbody.innerHTML = "<tr><td colspan='4'>열차 정보를 불러오는 중...</td></tr>";
+
       try {
         const res = await fetch("/api/train");
         const data = await res.json();
         const rows = data.realtimeArrivalList || [];
 
         const filtered = rows.filter(train => {
-          const barvlDt = parseInt(train.barvlDt || "9999");
-          const timeOK = barvlDt >= 0 && barvlDt <= 1500;
-
           const isLine1 = train.subwayId === "1001";
           const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0";
           const terminal = train.bstatnNm || '';
-          const currentStation = train.statnNm || train.arvlMsg3 || train.arvlMsg2 || '';
-
-          const isTargetDestination = ["소요산", "의정부", "동두천", "연천", "양주", "도봉산"]
-            .some(dest => terminal.includes(dest));
-
-          const isBetweenGuroSeoul = [
-            "구로", "신도림", "영등포", "신길", "대방",
-            "노량진", "용산", "남영", "서울"
-          ].some(st => currentStation.includes(st));
-
-          const passed = isLine1 && isUp && isTargetDestination && isBetweenGuroSeoul && timeOK;
-
-          if (passed) {
-            console.log(`[DEBUG] 포함: ${train.trainLineNm} | 현재역: ${currentStation} | 종착: ${terminal} | 도착까지 ${barvlDt}s`);
-          } else {
-            console.log(`[DEBUG] 제외: ${train.trainLineNm} | 현재역: ${currentStation} | 종착: ${terminal} | 도착까지 ${barvlDt}s`);
-          }
-
-          return passed;
+          const isTargetDest = targetDestinations.some(dest => terminal.includes(dest));
+          return isLine1 && isUp && isTargetDest;
         });
 
-        console.log("[DEBUG] 최종 필터링된 열차 수:", filtered.length);
+        const stationMap = {};
+        STATIONS.forEach(station => {
+          stationMap[station] = filtered
+            .filter(train => isHeadingToStation(train, station))
+            .sort((a, b) => parseInt(a.barvlDt || 9999) - parseInt(b.barvlDt || 9999)); // 도착순 정렬
+        });
 
-        const finalList = filtered
-          .sort((a, b) => parseInt(a.barvlDt) - parseInt(b.barvlDt))
-          .slice(0, 3);
-
-        list.innerHTML = '';
-        if (finalList.length === 0) {
-          list.innerHTML = "<li>⚠️ 조건에 맞는 열차가 없습니다.</li>";
-        } else {
-          finalList.forEach(train => {
-            const seconds = parseInt(train.barvlDt);
-            const minutes = Math.floor(seconds / 60);
-            const remainSec = seconds % 60;
-            const timeText = (minutes === 0)
-              ? `약 ${remainSec}초 후 도착 예정`
-              : `약 ${minutes}분 ${remainSec}초 후 도착 예정`;
-
-            const li = document.createElement('li');
-            li.textContent = `${train.arvlMsg2} (${timeText}, 종착: ${train.bstatnNm})`;
-            list.appendChild(li);
-          });
-        }
+        tbody.innerHTML = "";
+        STATIONS.forEach(station => {
+          const trains = stationMap[station] || [];
+          if (trains.length === 0) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td data-label="현재위치">${station}</td>
+              <td data-label="열차번호" colspan="3">-</td>
+            `;
+            tbody.appendChild(tr);
+          } else {
+            trains.forEach(train => {
+              const timeToSeoul = travelTimeToSeoul[station] || 0;
+              const arrivalTime = getEstimatedArrivalTime(timeToSeoul);
+              const tr = document.createElement("tr");
+              tr.innerHTML = `
+                <td data-label="현재위치">${station}</td>
+                <td data-label="열차번호">${train.trainNo || "-"}</td>
+                <td data-label="종착역">${train.bstatnNm || "-"}</td>
+                <td data-label="서울역 도착예정">${arrivalTime}</td>
+              `;
+              tbody.appendChild(tr);
+            });
+          }
+        });
       } catch (e) {
-        list.innerHTML = "<li>❌ 데이터를 불러오지 못했습니다.</li>";
         console.error(e);
+        tbody.innerHTML = "<tr><td colspan='4'>❌ 데이터를 불러오지 못했습니다.</td></tr>";
       }
     }
 
