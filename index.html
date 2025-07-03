@@ -104,9 +104,13 @@
     };
 
     const isHeadingToStation = (train, station) => {
-      const msg = `${train.arvlMsg2 || ""} ${train.arvlMsg3 || ""}`;
-      return msg.includes(`${station}역 전역 출발`) || msg.includes(`${station}역 도착`);
-    };
+  const msg3 = (train.arvlMsg3 || "").replace(/\s/g, "");
+  return msg3.includes(`${station}역도착`) ||
+         msg3.includes(`${station}역전역출발`) ||
+         msg3.includes(`${station}역진입`) ||
+         msg3.includes(`${station}역출발`);
+};
+
 
     async function fetchTrainData() {
       const tbody = document.querySelector("#train-table tbody");
