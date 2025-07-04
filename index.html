@@ -97,10 +97,15 @@
     };
     const targetDestinations = ["소요산", "의정부", "동두천", "연천", "양주", "도봉산"];
 
-    const getEstimatedArrivalTime = (minutesToAdd) => {
+    const getEstimatedArrivalTime = (station) => {
       const now = new Date();
-      now.setMinutes(now.getMinutes() + minutesToAdd);
-      return now.toTimeString().slice(0, 5); // HH:MM
+      if (station === "서울") {
+        return now.toTimeString().slice(0, 5);
+      } else {
+        const minutesToAdd = travelTimeToSeoul[station] || 0;
+        now.setMinutes(now.getMinutes() + minutesToAdd);
+        return now.toTimeString().slice(0, 5);
+      }
     };
 
     const isHeadingToStation = (train, station) => {
@@ -114,7 +119,7 @@
       tbody.innerHTML = "<tr><td colspan='4'>열차 정보를 불러오는 중...</td></tr>";
 
       try {
-        const res = await fetch("/api/train"); // sample-response.json 로 대체 가능
+        const res = await fetch("/api/train");
         const data = await res.json();
         const rows = data.realtimeArrivalList || [];
 
@@ -145,8 +150,7 @@
             tbody.appendChild(tr);
           } else {
             trains.forEach(train => {
-              const timeToSeoul = travelTimeToSeoul[station] || 0;
-              const arrivalTime = getEstimatedArrivalTime(timeToSeoul);
+              const arrivalTime = getEstimatedArrivalTime(station);
               const tr = document.createElement("tr");
               tr.innerHTML = `
                 <td data-label="현재위치">${station}</td>
