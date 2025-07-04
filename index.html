@@ -103,22 +103,18 @@
       return now.toTimeString().slice(0, 5); // HH:MM
     };
 
-  const isHeadingToStation = (train, station) => {
-  const msg3 = (train.arvlMsg3 || "").replace(/\s/g, "");
-  return msg3.includes(`${station}역도착`) ||
-         msg3.includes(`${station}역전역출발`) ||
-         msg3.includes(`${station}역진입`) ||
-         msg3.includes(`${station}역출발`);
-};
-
-
+    const isHeadingToStation = (train, station) => {
+      const msg = (train.arvlMsg3 || "").replace(/\s/g, "");
+      const pattern = new RegExp(`${station}역(도착|전역출발|진입|출발)`);
+      return pattern.test(msg) || (train.statnNm || "") === station;
+    };
 
     async function fetchTrainData() {
       const tbody = document.querySelector("#train-table tbody");
       tbody.innerHTML = "<tr><td colspan='4'>열차 정보를 불러오는 중...</td></tr>";
 
       try {
-        const res = await fetch("sample-response.json");  // 같은 폴더에 있는 JSON 사용
+        const res = await fetch("/api/train"); // sample-response.json 로 대체 가능
         const data = await res.json();
         const rows = data.realtimeArrivalList || [];
 
@@ -131,12 +127,11 @@
         });
 
         const stationMap = {};
-STATIONS.forEach(station => {
-  stationMap[station] = filtered
-    .filter(train => isHeadingToStation(train, station))
-    .sort((a, b) => parseInt(a.barvlDt || 9999) - parseInt(b.barvlDt || 9999));
-});
-
+        STATIONS.forEach(station => {
+          stationMap[station] = filtered
+            .filter(train => isHeadingToStation(train, station))
+            .sort((a, b) => parseInt(a.barvlDt || 9999) - parseInt(b.barvlDt || 9999));
+        });
 
         tbody.innerHTML = "";
         STATIONS.forEach(station => {
