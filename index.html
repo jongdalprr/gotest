@@ -103,13 +103,14 @@
       return now.toTimeString().slice(0, 5); // HH:MM
     };
 
-    const isHeadingToStation = (train, station) => {
+  const isHeadingToStation = (train, station) => {
   const msg3 = (train.arvlMsg3 || "").replace(/\s/g, "");
   return msg3.includes(`${station}역도착`) ||
          msg3.includes(`${station}역전역출발`) ||
          msg3.includes(`${station}역진입`) ||
          msg3.includes(`${station}역출발`);
 };
+
 
 
     async function fetchTrainData() {
