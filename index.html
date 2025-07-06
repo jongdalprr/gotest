@@ -1,78 +1,200 @@
-async function fetchTrainData() {
-  const tbody = document.querySelector("#train-table tbody");
-  tbody.innerHTML = "<tr><td colspan='4'>열차 정보를 불러오는 중...</td></tr>";
-
-  try {
-    const res = await fetch("/api/train");
-    const data = await res.json();
-    const rows = data.realtimeArrivalList || [];
-
-    // 🔍 전체 응답 확인
-    console.log("▶ 전체 응답 rows:", rows);
-
-    // ✅ 1차 필터: 상행 1호선 + 종착지 조건
-    const filtered = rows.filter(train => {
-      const isLine1 = train.subwayId === "1001";
-      const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0";
-      const terminal = train.bstatnNm || '';
-      const isTargetDest = ["소요산", "의정부", "동두천", "연천", "양주", "도봉산"]
-        .some(dest => terminal.includes(dest));
-      return isLine1 && isUp && isTargetDest;
-    });
-
-    console.log("▶ 필터 후 열차 수:", filtered.length);
-    filtered.forEach(train => {
-      console.log(
-        `[FILTERED] trainNo=${train.trainNo}`,
-        `statnNm=${train.statnNm}`,
-        `arvlMsg3=${train.arvlMsg3}`,
-        `bstatnNm=${train.bstatnNm}`,
-        `updnLine=${train.updnLine}`
-      );
-    });
-
-    // ✅ 역별 매칭 확인
-    const stationMap = {};
-    STATIONS.forEach(station => {
-      const matches = filtered.filter(train => {
-        const msg = (train.arvlMsg3 || "").replace(/\s/g, "");
-        const ok = isHeadingToStation(train, station);
-        if (ok) {
-          console.log(`✅ [매칭] 역=${station} | 열차번호=${train.trainNo} | arvlMsg3=${train.arvlMsg3}`);
-        }
-        return ok;
-      });
-      console.log(`▶ ${station} 매칭된 열차:`, matches.map(t => t.trainNo));
-      stationMap[station] = matches.sort((a, b) => parseInt(a.barvlDt || 9999) - parseInt(b.barvlDt || 9999));
-    });
-
-    // ✅ 표 렌더링
-    tbody.innerHTML = "";
-    STATIONS.forEach(station => {
-      const trains = stationMap[station] || [];
-      if (trains.length === 0) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td data-label="현재위치">${station}</td>
-          <td data-label="열차번호" colspan="3">-</td>
-        `;
-        tbody.appendChild(tr);
-      } else {
-        trains.forEach(train => {
-          const arrivalTime = getEstimatedArrivalTime(station);
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td data-label="현재위치">${station}</td>
-            <td data-label="열차번호">${train.trainNo || "-"}</td>
-            <td data-label="종착역">${train.bstatnNm || "-"}</td>
-            <td data-label="서울역 도착예정">${arrivalTime}</td>
-          `;
-          tbody.appendChild(tr);
-        });
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>서울역 방면 1호선 상행 열차 조회</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 1rem;
+      background: #f9f9f9;
+      margin: 0;
+    }
+    h2 {
+      color: #0052cc;
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+      line-height: 1.4;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.6em 0.3em;
+      text-align: center;
+    }
+    th {
+      background: #e9f0ff;
+      color: #003366;
+    }
+    button {
+      display: block;
+      margin: 1rem auto 0;
+      padding: 0.6em 1em;
+      font-size: 1rem;
+      border: none;
+      background: #007bff;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    @media screen and (max-width: 600px) {
+      table, thead, tbody, th, td, tr {
+        display: block;
       }
-    });
-  } catch (e) {
-    console.error(e);
-    tbody.innerHTML = "<tr><td colspan='4'>❌ 데이터를 불러오지 못했습니다.</td></tr>";
-  }
-}
+      thead {
+        display: none;
+      }
+      tr {
+        margin-bottom: 1rem;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      td {
+        text-align: left;
+        padding: 0.5em;
+        border: none;
+        border-bottom: 1px solid #eee;
+      }
+      td:before {
+        content: attr(data-label);
+        font-weight: bold;
+        display: inline-block;
+        width: 40%;
+        color: #003366;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h2>🚇 서울역 방면 1호선 상행 열차<br>(구로~서울 구간 / 종착: 소요산·의정부 등)</h2>
+  <table id="train-table">
+    <thead>
+      <tr>
+        <th>현재위치</th>
+        <th>열차번호</th>
+        <th>종착역</th>
+        <th>서울역 도착예정</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td colspan="4">열차 정보를 불러오는 중...</td></tr>
+    </tbody>
+  </table>
+  <button id="refresh-btn">🔄 새로고침</button>
+
+  <script>
+    const STATIONS = ["구로", "신도림", "영등포", "신길", "대방", "노량진", "용산", "남영", "서울"];
+    const travelTimeToSeoul = {
+      "구로": 16, "신도림": 14, "영등포": 12, "신길": 10,
+      "대방": 8, "노량진": 6, "용산": 4, "남영": 2, "서울": 0
+    };
+    const targetDestinations = ["소요산", "의정부", "동두천", "연천", "양주", "도봉산"];
+
+    const getEstimatedArrivalTime = (station) => {
+      const now = new Date();
+      if (station === "서울") {
+        return now.toTimeString().slice(0, 5);
+      } else {
+        const minutesToAdd = travelTimeToSeoul[station] || 0;
+        now.setMinutes(now.getMinutes() + minutesToAdd);
+        return now.toTimeString().slice(0, 5);
+      }
+    };
+
+    const isHeadingToStation = (train, station) => {
+      const msg = (train.arvlMsg3 || "").replace(/\s/g, "");
+      const idx = STATIONS.indexOf(station);
+      const prev = idx > 0 ? STATIONS[idx - 1] : null;
+      const pattern = new RegExp(`${station}역(도착|전역출발|진입|출발|진입중|도착예정)`);
+
+      return pattern.test(msg) ||
+             (prev && msg.includes(`${prev}역전역출발`)) ||
+             train.statnNm === station;
+    };
+
+    async function fetchTrainData() {
+      const tbody = document.querySelector("#train-table tbody");
+      tbody.innerHTML = "<tr><td colspan='4'>열차 정보를 불러오는 중...</td></tr>";
+
+      try {
+        const res = await fetch("/api/train");
+        const data = await res.json();
+        const rows = data.realtimeArrivalList || [];
+
+        console.log("▶ 전체 응답 rows:", rows);
+
+        const filtered = rows.filter(train => {
+          const isLine1 = train.subwayId === "1001";
+          const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0";
+          const terminal = train.bstatnNm || '';
+          const isTargetDest = targetDestinations.some(dest => terminal.includes(dest));
+          return isLine1 && isUp && isTargetDest;
+        });
+
+        console.log("▶ 필터 후 열차 수:", filtered.length);
+        filtered.forEach(train => {
+          console.log(
+            `[FILTERED] trainNo=${train.trainNo}`,
+            `statnNm=${train.statnNm}`,
+            `arvlMsg3=${train.arvlMsg3}`,
+            `bstatnNm=${train.bstatnNm}`,
+            `updnLine=${train.updnLine}`
+          );
+        });
+
+        const stationMap = {};
+        STATIONS.forEach(station => {
+          const matches = filtered.filter(train => {
+            const ok = isHeadingToStation(train, station);
+            if (ok) {
+              console.log(`✅ [매칭] 역=${station} | 열차번호=${train.trainNo} | arvlMsg3=${train.arvlMsg3}`);
+            }
+            return ok;
+          });
+          console.log(`▶ ${station} 매칭된 열차:`, matches.map(t => t.trainNo));
+          stationMap[station] = matches.sort((a, b) => parseInt(a.barvlDt || 9999) - parseInt(b.barvlDt || 9999));
+        });
+
+        tbody.innerHTML = "";
+        STATIONS.forEach(station => {
+          const trains = stationMap[station] || [];
+          if (trains.length === 0) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td data-label="현재위치">${station}</td>
+              <td data-label="열차번호" colspan="3">-</td>
+            `;
+            tbody.appendChild(tr);
+          } else {
+            trains.forEach(train => {
+              const arrivalTime = getEstimatedArrivalTime(station);
+              const tr = document.createElement("tr");
+              tr.innerHTML = `
+                <td data-label="현재위치">${station}</td>
+                <td data-label="열차번호">${train.trainNo || "-"}</td>
+                <td data-label="종착역">${train.bstatnNm || "-"}</td>
+                <td data-label="서울역 도착예정">${arrivalTime}</td>
+              `;
+              tbody.appendChild(tr);
+            });
+          }
+        });
+      } catch (e) {
+        console.error(e);
+        tbody.innerHTML = "<tr><td colspan='4'>❌ 데이터를 불러오지 못했습니다.</td></tr>";
+      }
+    }
+
+    fetchTrainData();
+    setInterval(fetchTrainData, 60000);
+    document.getElementById("refresh-btn").addEventListener("click", fetchTrainData);
+  </script>
+</body>
+</html>
