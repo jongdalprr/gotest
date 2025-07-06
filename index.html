@@ -149,6 +149,16 @@
           );
         });
 
+// 🔍 각 역에 매칭된 열차를 콘솔에 출력
+STATIONS.forEach(station => {
+  const matches = filtered.filter(train => isHeadingToStation(train, station));
+  console.log(`[체크] 역: ${station} → 매칭된 열차:`, matches.map(t => ({
+    trainNo: t.trainNo,
+    arvlMsg3: t.arvlMsg3,
+    statnNm: t.statnNm
+  })));
+});
+
         const stationMap = {};
         STATIONS.forEach(station => {
           const matches = filtered.filter(train => {
