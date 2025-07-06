@@ -159,6 +159,11 @@ STATIONS.forEach(station => {
   })));
 });
 
+// 🔎 열차별 메시지 전체 출력
+filtered.forEach(train => {
+  console.log(`[DEBUG] 열차 ${train.trainNo} - arvlMsg3: ${train.arvlMsg3}, statnNm: ${train.statnNm}, bstatnNm: ${train.bstatnNm}`);
+});
+
         const stationMap = {};
         STATIONS.forEach(station => {
           const matches = filtered.filter(train => {
