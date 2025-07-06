@@ -108,15 +108,10 @@
       }
     };
 
+    // ✅ 메시지에 역 이름이 포함되면 통과 (도착 상태 추정)
     const isHeadingToStation = (train, station) => {
       const msg = (train.arvlMsg3 || "").replace(/\s/g, "");
-      const idx = STATIONS.indexOf(station);
-      const prev = idx > 0 ? STATIONS[idx - 1] : null;
-      const pattern = new RegExp(`${station}역(도착|전역출발|진입|출발|진입중|도착예정)`);
-
-      return pattern.test(msg) ||
-             (prev && msg.includes(`${prev}역전역출발`)) ||
-             train.statnNm === station;
+      return msg.includes(station) || (train.statnNm || "") === station;
     };
 
     async function fetchTrainData() {
@@ -128,8 +123,6 @@
         const data = await res.json();
         const rows = data.realtimeArrivalList || [];
 
-        console.log("▶ 전체 응답 rows:", rows);
-
         const filtered = rows.filter(train => {
           const isLine1 = train.subwayId === "1001";
           const isUp = (train.updnLine || "").includes("상행") || train.updnLine === "0";
@@ -138,43 +131,20 @@
           return isLine1 && isUp && isTargetDest;
         });
 
-        console.log("▶ 필터 후 열차 수:", filtered.length);
-        filtered.forEach(train => {
-          console.log(
-            `[FILTERED] trainNo=${train.trainNo}`,
-            `statnNm=${train.statnNm}`,
-            `arvlMsg3=${train.arvlMsg3}`,
-            `bstatnNm=${train.bstatnNm}`,
-            `updnLine=${train.updnLine}`
-          );
+        STATIONS.forEach(station => {
+          const matches = filtered.filter(train => isHeadingToStation(train, station));
+          console.log(`[체크] 역: ${station} → 매칭된 열차:`, matches.map(t => ({
+            trainNo: t.trainNo,
+            arvlMsg3: t.arvlMsg3,
+            statnNm: t.statnNm
+          })));
         });
-
-// 🔍 각 역에 매칭된 열차를 콘솔에 출력
-STATIONS.forEach(station => {
-  const matches = filtered.filter(train => isHeadingToStation(train, station));
-  console.log(`[체크] 역: ${station} → 매칭된 열차:`, matches.map(t => ({
-    trainNo: t.trainNo,
-    arvlMsg3: t.arvlMsg3,
-    statnNm: t.statnNm
-  })));
-});
-
-// 🔎 열차별 메시지 전체 출력
-filtered.forEach(train => {
-  console.log(`[DEBUG] 열차 ${train.trainNo} - arvlMsg3: ${train.arvlMsg3}, statnNm: ${train.statnNm}, bstatnNm: ${train.bstatnNm}`);
-});
 
         const stationMap = {};
         STATIONS.forEach(station => {
-          const matches = filtered.filter(train => {
-            const ok = isHeadingToStation(train, station);
-            if (ok) {
-              console.log(`✅ [매칭] 역=${station} | 열차번호=${train.trainNo} | arvlMsg3=${train.arvlMsg3}`);
-            }
-            return ok;
-          });
-          console.log(`▶ ${station} 매칭된 열차:`, matches.map(t => t.trainNo));
-          stationMap[station] = matches.sort((a, b) => parseInt(a.barvlDt || 9999) - parseInt(b.barvlDt || 9999));
+          stationMap[station] = filtered
+            .filter(train => isHeadingToStation(train, station))
+            .sort((a, b) => parseInt(a.barvlDt || 9999) - parseInt(b.barvlDt || 9999));
         });
 
         tbody.innerHTML = "";
